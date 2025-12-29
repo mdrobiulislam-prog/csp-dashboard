@@ -1,1 +1,1394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Daily Task Monitor CSP</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    :root {
+      --bg-main: #020617;
+      --bg-card: #0b1120;
+      --border-subtle: #1f2937;
+      --accent: #4f46e5;
+      --accent-soft: #4338ca;
+      --text-main: #e5e7eb;
+      --text-muted: #9ca3af;
+      --chip-bg: #111827;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg-main);
+      color: var(--text-main);
+      margin: 0;
+      padding: 0;
+    }
+    .top-bar {
+      background: #020617;
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .top-left { display: flex; align-items: center; gap: 10px; }
+    .badge {
+      width: 32px; height: 32px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #4f46e5, #22d3ee);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+    }
+    .top-title { display: flex; flex-direction: column; gap: 2px; }
+    .top-title h1 { margin: 0; font-size: 18px; }
+    .top-title span { font-size: 12px; color: var(--text-muted); }
+    .top-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .live-dot {
+      width: 8px; height: 8px;
+      border-radius: 999px;
+      background: #22c55e;
+      margin-right: 6px;
+      box-shadow: 0 0 8px rgba(34,197,94,.8);
+    }
+    .pill {
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-main);
+    }
+    .main { padding: 16px 24px 24px; }
+    .filters-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 16px;
+      align-items: flex-start;
+    }
+    .filter-block {
+      background: var(--bg-card);
+      border-radius: 999px;
+      border: 1px solid var(--border-subtle);
+      padding: 6px 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--text-muted);
+      flex-wrap: wrap;
+      position: relative;
+    }
+    .filter-label {
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    select {
+      background: #020617;
+      color: var(--text-main);
+      border: 1px solid #374151;
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 12px;
+      outline: none;
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      cursor: pointer;
+    }
+    option { background: #020617; color: var(--text-main); }
+    input[type="text"] {
+      background: #020617;
+      color: var(--text-main);
+      border: 1px solid #374151;
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 12px;
+      outline: none;
+      min-width: 160px;
+    }
+    input::placeholder { color: #6b7280; }
+    .date-input {
+      background: #020617;
+      color: var(--text-main);
+      border: 1px solid #374151;
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 12px;
+      outline: none;
+      min-width: 130px;
+      cursor: pointer;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .date-input:hover,
+    .date-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(79,70,229,.35);
+    }
+    .date-input::-webkit-calendar-picker-indicator {
+      cursor: pointer;
+      filter: invert(0.7);
+    }
+    .date-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+    .chip {
+      padding: 6px 10px;
+      border-radius: 10px;
+      font-size: 11px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      background: #020617;
+      color: var(--text-muted);
+      min-width: 60px;
+      text-align: center;
+    }
+    .chip.active {
+      background: var(--accent);
+      border-color: var(--accent-soft);
+      color: white;
+      box-shadow: 0 0 0 1px rgba(79,70,229,.3);
+    }
+    .kpi-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .kpi-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 10px 14px;
+      min-width: 150px;
+      flex: 0 0 auto;
+    }
+    .kpi-label { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+    .kpi-value { font-size: 18px; font-weight: 700; }
+    .kpi-chip { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+    .cards-row { display: flex; gap: 20px; flex-wrap: wrap; }
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      padding: 16px;
+      border-radius: 14px;
+      flex: 1 1 380px;
+      min-width: 360px;
+    }
+    .card h3 { margin: 0 0 10px; font-size: 14px; }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .card-wide { margin-top: 20px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    th, td {
+      border-bottom: 1px solid #111827;
+      padding: 4px 6px;
+      text-align: left;
+      white-space: nowrap;
+    }
+    th {
+      background: #020617;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    .table-wrapper { max-height: 360px; overflow: auto; }
+    .tag {
+      padding: 2px 6px;
+      border-radius: 999px;
+      background: var(--chip-bg);
+      font-size: 11px;
+      display: inline-block;
+      max-width: 260px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .muted { color: var(--text-muted); font-size: 11px; }
+    .export-btn {
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 999px;
+      padding: 6px 14px;
+      font-size: 12px;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    .export-btn:hover { background: var(--accent-soft); }
+
+    /* Updated By dropdown */
+    .ub-wrap { position: relative; }
+    .ub-btn {
+      background: #020617;
+      color: var(--text-main);
+      border: 1px solid #374151;
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 12px;
+      outline: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 180px;
+      justify-content: space-between;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .ub-btn:hover, .ub-btn:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(79,70,229,.35);
+    }
+    .ub-caret { opacity: .8; font-size: 12px; }
+    .ub-panel {
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 0;
+      width: 280px;
+      background: #050b1a;
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      padding: 10px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.45);
+      z-index: 50;
+      display: none;
+    }
+    .ub-panel.open { display: block; }
+    .ub-top { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+    .ub-search {
+      flex: 1;
+      background: #020617;
+      color: var(--text-main);
+      border: 1px solid #374151;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+      outline: none;
+    }
+    .ub-actions { display: flex; gap: 8px; justify-content: space-between; margin: 6px 0 8px; }
+    .ub-link {
+      background: transparent;
+      border: none;
+      color: #93c5fd;
+      font-size: 12px;
+      cursor: pointer;
+      padding: 4px 6px;
+    }
+    .ub-link:hover { text-decoration: underline; }
+    .ub-list { max-height: 220px; overflow: auto; padding-right: 4px; }
+    .ub-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+    .ub-item:hover { background: rgba(79,70,229,.12); }
+    .ub-item input { cursor: pointer; }
+    .ub-name {
+      color: var(--text-main);
+      font-size: 12px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 220px;
+    }
+    .ub-footer { margin-top: 8px; display: flex; justify-content: flex-end; gap: 8px; }
+    .ub-smallbtn {
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+      border: 1px solid #374151;
+      background: #020617;
+      color: var(--text-main);
+      cursor: pointer;
+    }
+    .ub-smallbtn.primary {
+      background: var(--accent);
+      border-color: var(--accent-soft);
+    }
+    .ub-smallbtn.primary:hover { background: var(--accent-soft); }
+  </style>
+</head>
+
+<body>
+  <div class="top-bar">
+    <div class="top-left">
+      <div class="badge">DT</div>
+      <div class="top-title">
+        <h1>Daily Task Monitor CSP</h1>
+        <span>GSheet powered dashboard • Timezone: Asia/Manila</span>
+      </div>
+    </div>
+    <div class="top-right">
+      <div style="display:flex;align-items:center;">
+        <span class="live-dot"></span> LIVE
+      </div>
+      <div class="pill">
+        Last updated: <span id="lastUpdated">–</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="filters-row">
+      <div class="filter-block">
+        <span class="filter-label">Sheet</span>
+        <select id="sheetSelect"></select>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:4px;">
+        <span class="filter-label">Filter by day (quick)</span>
+        <div class="date-chips" id="dateChips"></div>
+        <span class="muted" id="dateFilterHint"></span>
+      </div>
+
+      <div class="filter-block">
+        <span class="filter-label">Custom date</span>
+        <input id="customDate" type="date" class="date-input" title="Click to open calendar">
+      </div>
+
+      <div class="filter-block">
+        <span class="filter-label">Date range</span>
+        <input id="rangeStart" type="date" class="date-input" title="Start date">
+        <span style="font-size:11px;color:var(--text-muted);">to</span>
+        <input id="rangeEnd" type="date" class="date-input" title="End date">
+      </div>
+
+      <div class="filter-block">
+        <span class="filter-label">Search</span>
+        <input id="searchInput" type="text" placeholder="Phone / Username / Affiliate">
+      </div>
+
+      <div class="filter-block">
+        <span class="filter-label">Status</span>
+        <select id="statusSelect">
+          <option value="ALL">All Status</option>
+          <option value="Number Deleted">Number Deleted</option>
+          <option value="Can Not Delete">Can Not Delete</option>
+          <option value="Turnover Completed">Turnover Completed</option>
+          <option value="Unlocked">Unlocked</option>
+        </select>
+      </div>
+
+      <div class="filter-block ub-wrap" id="updatedByWrap">
+        <span class="filter-label">Updated By</span>
+
+        <button class="ub-btn" id="ubBtn" type="button" aria-haspopup="true" aria-expanded="false">
+          <span id="ubBtnLabel">All</span>
+          <span class="ub-caret">▾</span>
+        </button>
+
+        <div class="ub-panel" id="ubPanel" role="menu" aria-label="Updated By filter">
+          <div class="ub-top">
+            <input id="ubSearch" class="ub-search" type="text" placeholder="Search name...">
+          </div>
+
+          <div class="ub-actions">
+            <button class="ub-link" id="ubSelectAll" type="button">Select all</button>
+            <button class="ub-link" id="ubClear" type="button">Clear</button>
+          </div>
+
+          <div class="ub-list" id="ubList"></div>
+
+          <div class="ub-footer">
+            <button class="ub-smallbtn" id="ubClose" type="button">Close</button>
+            <button class="ub-smallbtn primary" id="ubApply" type="button">Apply</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="filter-block">
+        <span class="filter-label">Export</span>
+        <button id="exportBtn" type="button" class="export-btn">CSV</button>
+      </div>
+    </div>
+
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <div class="kpi-label">Total Records</div>
+        <div class="kpi-value" id="kpiTotal">-</div>
+        <div class="kpi-chip" id="kpiTotalSheet"></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Last 7 Days</div>
+        <div class="kpi-value" id="kpiLast7">-</div>
+        <div class="kpi-chip">Based on Deleted Date</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Today (Manila)</div>
+        <div class="kpi-value" id="kpiToday">-</div>
+        <div class="kpi-chip">Today’s Deleted Date</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Selected Date</div>
+        <div class="kpi-value" id="kpiSelected">-</div>
+        <div class="kpi-chip" id="kpiSelectedHint">Pick a custom date</div>
+      </div>
+    </div>
+
+    <div class="cards-row">
+      <div class="card">
+        <h3>Volume Overview by Sheet</h3>
+        <canvas id="bySheetChart"></canvas>
+        <div class="muted" style="margin-top:6px;">
+          Showing <span id="chartRangeLabel">all days</span>.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3>Latest 10 Records</h3>
+          <span class="muted" id="latestCaption"></span>
+        </div>
+        <div class="table-wrapper">
+          <table id="latestTable">
+            <thead id="latestThead"></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="card card-wide">
+      <h3>Last 7 Days – Records (<span id="breakdownSheetName"></span>)</h3>
+      <div class="table-wrapper" style="max-height:260px;">
+        <table id="breakdownTable">
+          <thead id="breakdownThead"></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // =========================
+    // CONFIG (NEW WEB APP URL)
+    // =========================
+    const API_URL = "https://script.google.com/macros/s/AKfycbwkkOxifhL64AmDaMh34ne3e0PN-2aH4gWToPKN9k26hxpG9CqeoWl7IqD1CrxS026f/exec";
+    const REFRESH_MS = 30000;
+    const TZ = "Asia/Manila";
+
+    // ✅ include ALL Ticket Tracker
+    const ALLOWED_SHEETS_LOWER = [
+      "bb number delete",
+      "bgb number delete",
+      "klg number delete",
+      "b3 number delete",
+      "b4 number delete",
+      "mcw number delete",
+      "mxw number delete",
+      "all ticket tracker"
+    ];
+
+    const ALL_SHEETS_KEY = "__ALL_SHEETS__";
+
+    let allData = {};
+    let sheetNames = [];
+    let currentSheet = ALL_SHEETS_KEY;
+
+    let selectedDay = null;
+    let rangeStart = null;
+    let rangeEnd = null;
+    let currentSearch = "";
+    let currentStatus = "ALL";
+
+    let selectedUpdatedBy = new Set();
+    let draftUpdatedBy = new Set();
+
+    let sheetChart = null;
+
+    const customDateInput = document.getElementById('customDate');
+    const rangeStartInput = document.getElementById('rangeStart');
+    const rangeEndInput = document.getElementById('rangeEnd');
+
+    customDateInput.addEventListener('click', () => {
+      if (typeof customDateInput.showPicker === 'function') customDateInput.showPicker();
+    });
+
+    function isTicketTrackerSheet(name) {
+      return String(name || "").toLowerCase() === "all ticket tracker";
+    }
+
+    // -------------------------
+    // TIMEZONE HELPERS
+    // -------------------------
+    function tzDateParts(dateObj, timeZone = TZ) {
+      const fmt = new Intl.DateTimeFormat("en-CA", { timeZone, year:"numeric", month:"2-digit", day:"2-digit" });
+      const parts = fmt.formatToParts(dateObj);
+      const map = {};
+      parts.forEach(p => { if (p.type !== "literal") map[p.type] = p.value; });
+      return { y: map.year, m: map.month, d: map.day };
+    }
+
+    function tzDateKeyFromDate(dateObj, timeZone = TZ) {
+      const { y, m, d } = tzDateParts(dateObj, timeZone);
+      return `${y}-${m}-${d}`;
+    }
+
+    function manilaNowKey() { return tzDateKeyFromDate(new Date(), TZ); }
+
+    function manilaTimeLabelNow() {
+      return new Intl.DateTimeFormat("en-GB", { timeZone: TZ, hour:"2-digit", minute:"2-digit", second:"2-digit" }).format(new Date());
+    }
+
+    // -------------------------
+    // COLUMN NORMALIZATION
+    // -------------------------
+    const CANON = {
+      affiliate: "Affiliate Username",
+      phone: "Phone Number",
+      player: "Player Username",
+      deleted: "Deleted Date",
+      status: "Status",
+      updatedBy: "Update By",
+    };
+
+    function normKey(s) {
+      return String(s || "").toLowerCase().replace(/[_\-]+/g," ").replace(/\s+/g," ").trim();
+    }
+
+    function getField(row, canonLabel) {
+      if (row && row[canonLabel] != null) return row[canonLabel];
+      const target = normKey(canonLabel);
+      for (const k of Object.keys(row || {})) {
+        if (normKey(k) === target) return row[k];
+      }
+      return "";
+    }
+
+    // -------------------------
+    // DATE PARSING (FIXED "17th")
+    // -------------------------
+    function stripOrdinals(s) {
+      return String(s || "").replace(/(\d+)(st|nd|rd|th)/gi, "$1");
+    }
+
+    function dateKeyFromCell(value) {
+      if (!value) return null;
+
+      // ISO from GAS Date -> "2025-12-17T00:00:00.000Z"
+      if (typeof value === "string" && value.includes("T") && !isNaN(Date.parse(value))) {
+        return tzDateKeyFromDate(new Date(value), TZ);
+      }
+
+      const s0 = String(value).trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s0)) return s0;
+
+      const s = stripOrdinals(s0);
+      const d = new Date(s);
+      if (!isNaN(d)) return tzDateKeyFromDate(d, TZ);
+
+      const match = s.match(/(\d{4}-\d{2}-\d{2})/);
+      if (match) return match[1];
+
+      return null;
+    }
+
+    function formatDateLabel(isoStr) {
+      if (!isoStr) return "";
+      const d = new Date(isoStr + "T00:00:00");
+      if (isNaN(d)) return isoStr;
+      return new Intl.DateTimeFormat("en-GB", { timeZone: TZ, day: "2-digit", month: "short" }).format(d);
+    }
+
+    // -------------------------
+    // FILTERS
+    // -------------------------
+    function matchesSearch(row) {
+      if (!currentSearch) return true;
+      const q = currentSearch.toLowerCase();
+      return (
+        String(getField(row, CANON.phone) || "").toLowerCase().includes(q) ||
+        String(getField(row, CANON.player) || "").toLowerCase().includes(q) ||
+        String(getField(row, CANON.affiliate) || "").toLowerCase().includes(q)
+      );
+    }
+
+    function matchesStatus(row) {
+      if (currentStatus === "ALL") return true;
+      const s = String(getField(row, CANON.status) || "").toLowerCase();
+      return s.includes(currentStatus.toLowerCase());
+    }
+
+    function matchesUpdatedBy(row) {
+      if (!selectedUpdatedBy || selectedUpdatedBy.size === 0) return true;
+      const u = String(getField(row, CANON.updatedBy) || "").trim();
+      return selectedUpdatedBy.has(u);
+    }
+
+    function rowMatchesDateFilters(row, useDateFilter) {
+      if (!useDateFilter) return true;
+
+      const hasSingle = !!selectedDay;
+      const hasRange = !!(rangeStart || rangeEnd);
+      if (!hasSingle && !hasRange) return true;
+
+      const dKey = dateKeyFromCell(getField(row, CANON.deleted));
+      if (!dKey) return false;
+
+      if (hasSingle) return dKey === selectedDay;
+
+      const d = new Date(dKey + "T00:00:00");
+      if (rangeStart) {
+        const s = new Date(rangeStart + "T00:00:00");
+        if (d < s) return false;
+      }
+      if (rangeEnd) {
+        const e = new Date(rangeEnd + "T23:59:59");
+        if (d > e) return false;
+      }
+      return true;
+    }
+
+    function applyFiltersToRows(rows, useDateFilter) {
+      return rows.filter(r => {
+        if (!rowMatchesDateFilters(r, useDateFilter)) return false;
+        if (!matchesSearch(r)) return false;
+        if (!matchesStatus(r)) return false;
+        if (!matchesUpdatedBy(r)) return false;
+        return true;
+      });
+    }
+
+    function getRowsForCurrentSheet() {
+      if (currentSheet === ALL_SHEETS_KEY) {
+        return sheetNames.flatMap(name =>
+          (allData[name] || []).map(r => ({ ...r, __sheet: name }))
+        );
+      }
+      return (allData[currentSheet] || []).map(r => ({ ...r, __sheet: currentSheet }));
+    }
+
+    // -------------------------
+    // UPDATED BY DROPDOWN UI
+    // -------------------------
+    const ubBtn = document.getElementById("ubBtn");
+    const ubBtnLabel = document.getElementById("ubBtnLabel");
+    const ubPanel = document.getElementById("ubPanel");
+    const ubList = document.getElementById("ubList");
+    const ubSearch = document.getElementById("ubSearch");
+    const ubSelectAll = document.getElementById("ubSelectAll");
+    const ubClear = document.getElementById("ubClear");
+    const ubClose = document.getElementById("ubClose");
+    const ubApply = document.getElementById("ubApply");
+    const updatedByWrap = document.getElementById("updatedByWrap");
+
+    let allUpdatedByNames = [];
+
+    function setUpdatedByButtonLabel() {
+      if (!selectedUpdatedBy || selectedUpdatedBy.size === 0) {
+        ubBtnLabel.textContent = "All";
+        return;
+      }
+      const arr = Array.from(selectedUpdatedBy);
+      ubBtnLabel.textContent = arr.length === 1 ? arr[0] : `${arr.length} selected`;
+    }
+
+    function renderUbList() {
+      const q = ubSearch.value.trim().toLowerCase();
+      const names = allUpdatedByNames.filter(n => n.toLowerCase().includes(q));
+
+      ubList.innerHTML = "";
+      if (!names.length) {
+        ubList.innerHTML = `<div class="muted" style="padding:8px;">No names found.</div>`;
+        return;
+      }
+
+      names.forEach(name => {
+        const id = "ub_" + name.replace(/\W+/g, "_");
+        const row = document.createElement("label");
+        row.className = "ub-item";
+        row.setAttribute("for", id);
+
+        const checked = draftUpdatedBy.size === 0 ? false : draftUpdatedBy.has(name);
+
+        row.innerHTML = `
+          <input id="${id}" type="checkbox" ${checked ? "checked" : ""} />
+          <span class="ub-name" title="${name}">${name}</span>
+        `;
+
+        row.addEventListener("click", (e) => {
+          if (e.target && e.target.tagName === "INPUT") return;
+          const cb = row.querySelector("input");
+          cb.checked = !cb.checked;
+          cb.dispatchEvent(new Event("change"));
+        });
+
+        const cb = row.querySelector("input");
+        cb.addEventListener("change", () => {
+          if (cb.checked) draftUpdatedBy.add(name);
+          else draftUpdatedBy.delete(name);
+        });
+
+        ubList.appendChild(row);
+      });
+    }
+
+    function buildUpdatedByNames() {
+      const baseRows = getRowsForCurrentSheet();
+      const set = new Set();
+      baseRows.forEach(r => {
+        const u = String(getField(r, CANON.updatedBy) || "").trim();
+        if (u) set.add(u);
+      });
+      allUpdatedByNames = Array.from(set).sort((a,b) => a.localeCompare(b));
+    }
+
+    function openUbPanel() {
+      draftUpdatedBy = new Set(selectedUpdatedBy);
+      ubSearch.value = "";
+      renderUbList();
+      ubPanel.classList.add("open");
+      ubBtn.setAttribute("aria-expanded", "true");
+      setTimeout(() => ubSearch.focus(), 0);
+    }
+
+    function closeUbPanel() {
+      ubPanel.classList.remove("open");
+      ubBtn.setAttribute("aria-expanded", "false");
+    }
+
+    ubBtn.addEventListener("click", () => {
+      if (ubPanel.classList.contains("open")) closeUbPanel();
+      else openUbPanel();
+    });
+
+    ubSearch.addEventListener("input", renderUbList);
+
+    ubSelectAll.addEventListener("click", () => {
+      draftUpdatedBy = new Set(allUpdatedByNames);
+      renderUbList();
+    });
+
+    ubClear.addEventListener("click", () => {
+      draftUpdatedBy = new Set();
+      renderUbList();
+    });
+
+    ubClose.addEventListener("click", closeUbPanel);
+
+    ubApply.addEventListener("click", () => {
+      selectedUpdatedBy = new Set(draftUpdatedBy);
+      closeUbPanel();
+      setUpdatedByButtonLabel();
+      updateAllForSheet();
+    });
+
+    document.addEventListener("click", (e) => {
+      if (!ubPanel.classList.contains("open")) return;
+      if (updatedByWrap.contains(e.target)) return;
+      closeUbPanel();
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && ubPanel.classList.contains("open")) closeUbPanel();
+    });
+
+    // -------------------------
+    // JSON / JSONP LOADER (PERMANENT FIX)
+    // -------------------------
+    function loadJsonp(url) {
+      return new Promise((resolve, reject) => {
+        const cbName = "__jsonp_cb_" + Math.random().toString(16).slice(2);
+        const script = document.createElement("script");
+        const sep = url.includes("?") ? "&" : "?";
+        script.src = `${url}${sep}callback=${cbName}&_t=${Date.now()}`;
+
+        window[cbName] = (data) => {
+          try { resolve(data); }
+          finally {
+            delete window[cbName];
+            script.remove();
+          }
+        };
+
+        script.onerror = () => {
+          delete window[cbName];
+          script.remove();
+          reject(new Error("JSONP load failed"));
+        };
+
+        document.head.appendChild(script);
+      });
+    }
+
+    async function fetchData() {
+      try {
+        const res = await fetch(API_URL, { cache: "no-store" });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        return await res.json();
+      } catch (e) {
+        // file:/// CORS-safe fallback
+        return await loadJsonp(API_URL);
+      }
+    }
+
+    // -------------------------
+    // LOAD DATA
+    // -------------------------
+    async function loadData() {
+      allData = await fetchData();
+
+      sheetNames = Object.keys(allData).filter(name =>
+        ALLOWED_SHEETS_LOWER.includes(String(name).toLowerCase())
+      );
+
+      if (!sheetNames.length) {
+        console.error("No allowed sheets found in API response.");
+        return;
+      }
+
+      if (!currentSheet) currentSheet = ALL_SHEETS_KEY;
+      if (currentSheet !== ALL_SHEETS_KEY && !sheetNames.includes(currentSheet)) {
+        currentSheet = ALL_SHEETS_KEY;
+      }
+
+      buildDateChips();
+      populateSheetSelector();
+
+      buildUpdatedByNames();
+      if (selectedUpdatedBy && selectedUpdatedBy.size > 0) {
+        const next = new Set();
+        selectedUpdatedBy.forEach(n => { if (allUpdatedByNames.includes(n)) next.add(n); });
+        selectedUpdatedBy = next;
+      }
+      setUpdatedByButtonLabel();
+
+      updateAllForSheet();
+      document.getElementById('lastUpdated').textContent = manilaTimeLabelNow();
+    }
+
+    // -------------------------
+    // DATE CHIPS
+    // -------------------------
+    function buildDateChips() {
+      const chipsContainer = document.getElementById('dateChips');
+      const hint = document.getElementById('dateFilterHint');
+      chipsContainer.innerHTML = "";
+
+      const rows = getRowsForCurrentSheet();
+      const datesSet = new Set();
+
+      rows.forEach(r => {
+        const dKey = dateKeyFromCell(getField(r, CANON.deleted));
+        if (dKey) datesSet.add(dKey);
+      });
+
+      const sortedDesc = Array.from(datesSet).sort((a, b) => new Date(b) - new Date(a));
+      const quickDates = sortedDesc.slice(0, 7);
+
+      hint.textContent = quickDates.length
+        ? "Quick filter: last 7 distinct days with data (newest first)."
+        : "Date filter: not available (no Date for this sheet).";
+
+      const allChip = document.createElement('div');
+      allChip.className = 'chip' + (selectedDay === null && !rangeStart && !rangeEnd ? ' active' : '');
+      allChip.textContent = 'All';
+      allChip.onclick = () => {
+        selectedDay = null;
+        rangeStart = null;
+        rangeEnd = null;
+        customDateInput.value = "";
+        rangeStartInput.value = "";
+        rangeEndInput.value = "";
+        updateAllForSheet();
+        buildDateChips();
+      };
+      chipsContainer.appendChild(allChip);
+
+      quickDates.forEach(dKey => {
+        const chip = document.createElement('div');
+        chip.className = 'chip' + (selectedDay === dKey ? ' active' : '');
+        chip.textContent = formatDateLabel(dKey);
+        chip.title = dKey;
+        chip.onclick = () => {
+          selectedDay = dKey;
+          rangeStart = null;
+          rangeEnd = null;
+          customDateInput.value = dKey;
+          rangeStartInput.value = "";
+          rangeEndInput.value = "";
+          updateAllForSheet();
+          buildDateChips();
+        };
+        chipsContainer.appendChild(chip);
+      });
+    }
+
+    // -------------------------
+    // CHART
+    // -------------------------
+    function buildCountBySheetChart() {
+      const ctx = document.getElementById('bySheetChart').getContext('2d');
+
+      const counts = sheetNames.map(name => {
+        const base = (allData[name] || []).map(r => ({ ...r, __sheet: name }));
+        const rows = applyFiltersToRows(base, true);
+        return rows.length;
+      });
+
+      if (sheetChart) sheetChart.destroy();
+
+      sheetChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: sheetNames,
+          datasets: [{ label: 'Rows', data: counts, backgroundColor: '#4f46e5' }]
+        },
+        options: {
+          scales: { y: { beginAtZero: true } },
+          plugins: { legend: { display: false } }
+        }
+      });
+
+      let label = 'for all available days';
+      if (selectedDay) label = `for ${selectedDay}`;
+      else if (rangeStart || rangeEnd) label = `for ${rangeStart || '…'} – ${rangeEnd || '…'}`;
+      document.getElementById('chartRangeLabel').textContent = label;
+    }
+
+    // -------------------------
+    // SHEET SELECTOR
+    // -------------------------
+    function populateSheetSelector() {
+      const select = document.getElementById('sheetSelect');
+      select.innerHTML = "";
+
+      const allOpt = document.createElement('option');
+      allOpt.value = ALL_SHEETS_KEY;
+      allOpt.textContent = "All Sheets (Combined)";
+      select.appendChild(allOpt);
+
+      sheetNames.forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        select.appendChild(opt);
+      });
+
+      select.value = currentSheet;
+
+      select.onchange = (e) => {
+        currentSheet = e.target.value;
+
+        selectedDay = null;
+        rangeStart = null;
+        rangeEnd = null;
+        customDateInput.value = "";
+        rangeStartInput.value = "";
+        rangeEndInput.value = "";
+
+        buildUpdatedByNames();
+        const next = new Set();
+        selectedUpdatedBy.forEach(n => { if (allUpdatedByNames.includes(n)) next.add(n); });
+        selectedUpdatedBy = next;
+        setUpdatedByButtonLabel();
+
+        buildDateChips();
+        updateAllForSheet();
+      };
+    }
+
+    function updateAllForSheet() {
+      updateLatestTable();
+      updateSevenDaysTableAndKpis();
+      buildCountBySheetChart();
+    }
+
+    // -------------------------
+    // LATEST 10
+    // -------------------------
+    function updateLatestTable() {
+      const baseRows = getRowsForCurrentSheet();
+      const filtered = applyFiltersToRows(baseRows, true);
+      const latest = filtered.slice(-10).reverse();
+
+      const thead = document.getElementById('latestThead');
+      const tbody = document.querySelector('#latestTable tbody');
+      tbody.innerHTML = "";
+
+      const baseLabel = currentSheet === ALL_SHEETS_KEY ? "all sheets" : currentSheet;
+      const isTicket = currentSheet !== ALL_SHEETS_KEY && isTicketTrackerSheet(currentSheet);
+
+      if (currentSheet === ALL_SHEETS_KEY) {
+        thead.innerHTML = `
+          <tr>
+            <th>Sheet</th>
+            <th>Affiliate</th>
+            <th>Phone</th>
+            <th>Player</th>
+            <th>Date</th>
+            <th>Status</th>
+            <th>Updated By</th>
+          </tr>
+        `;
+      } else if (isTicket) {
+        thead.innerHTML = `
+          <tr>
+            <th>Affiliate</th>
+            <th>Player</th>
+            <th>Date</th>
+            <th>Status</th>
+            <th>Updated By</th>
+          </tr>
+        `;
+      } else {
+        thead.innerHTML = `
+          <tr>
+            <th>Affiliate</th>
+            <th>Phone</th>
+            <th>Player</th>
+            <th>Date</th>
+            <th>Status</th>
+            <th>Updated By</th>
+          </tr>
+        `;
+      }
+
+      if (!latest.length) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td colspan="7" class="muted">No results found for current filter.</td>`;
+        tbody.appendChild(tr);
+      } else {
+        latest.forEach(row => {
+          const dKey = dateKeyFromCell(getField(row, CANON.deleted)) || "";
+          const sheetCell = currentSheet === ALL_SHEETS_KEY ? `<td>${row.__sheet || ""}</td>` : "";
+
+          if (currentSheet === ALL_SHEETS_KEY) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              ${sheetCell}
+              <td>${getField(row, CANON.affiliate) || ""}</td>
+              <td>${getField(row, CANON.phone) || ""}</td>
+              <td>${getField(row, CANON.player) || ""}</td>
+              <td>${dKey}</td>
+              <td><span class="tag">${getField(row, CANON.status) || ""}</span></td>
+              <td>${getField(row, CANON.updatedBy) || ""}</td>
+            `;
+            tbody.appendChild(tr);
+          } else if (isTicket) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td>${getField(row, CANON.affiliate) || ""}</td>
+              <td>${getField(row, CANON.player) || ""}</td>
+              <td>${dKey}</td>
+              <td><span class="tag">${getField(row, CANON.status) || ""}</span></td>
+              <td>${getField(row, CANON.updatedBy) || ""}</td>
+            `;
+            tbody.appendChild(tr);
+          } else {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td>${getField(row, CANON.affiliate) || ""}</td>
+              <td>${getField(row, CANON.phone) || ""}</td>
+              <td>${getField(row, CANON.player) || ""}</td>
+              <td>${dKey}</td>
+              <td><span class="tag">${getField(row, CANON.status) || ""}</span></td>
+              <td>${getField(row, CANON.updatedBy) || ""}</td>
+            `;
+            tbody.appendChild(tr);
+          }
+        });
+      }
+
+      let cap = `Showing latest 10 for ${baseLabel} (filtered)`;
+      if (selectedDay) cap = `Showing latest 10 for ${baseLabel} on ${selectedDay} (filtered)`;
+      else if (rangeStart || rangeEnd) cap = `Showing latest 10 for ${baseLabel} (${rangeStart || '…'} – ${rangeEnd || '…'}, filtered)`;
+      document.getElementById('latestCaption').textContent = cap;
+    }
+
+    // -------------------------
+    // LAST 7 DAYS + KPIs
+    // -------------------------
+    function updateSevenDaysTableAndKpis() {
+      const thead = document.getElementById('breakdownThead');
+      const tbody = document.querySelector('#breakdownTable tbody');
+      tbody.innerHTML = "";
+
+      const breakdownName = currentSheet === ALL_SHEETS_KEY ? "All Sheets (Combined)" : currentSheet;
+      document.getElementById('breakdownSheetName').textContent = breakdownName;
+
+      const baseRows = getRowsForCurrentSheet();
+
+      const filteredNoDate = baseRows.filter(r =>
+        matchesSearch(r) && matchesStatus(r) && matchesUpdatedBy(r)
+      );
+
+      const todayKey = manilaNowKey();
+      let total = filteredNoDate.length;
+      let last7Total = 0;
+      let todayTotal = 0;
+
+      const selectedKeyForKpi = selectedDay || null;
+      let selectedTotal = 0;
+
+      const byDateCounts = {};
+      const rowsWithDate = [];
+
+      filteredNoDate.forEach(r => {
+        const dKey = dateKeyFromCell(getField(r, CANON.deleted));
+        if (!dKey) return;
+
+        byDateCounts[dKey] = (byDateCounts[dKey] || 0) + 1;
+        rowsWithDate.push({ r, dKey });
+
+        if (dKey === todayKey) todayTotal++;
+        if (selectedKeyForKpi && dKey === selectedKeyForKpi) selectedTotal++;
+      });
+
+      const allDatesSortedAsc = Object.keys(byDateCounts).sort((a,b) => new Date(a) - new Date(b));
+      const last7Asc = allDatesSortedAsc.slice(-7);
+      const last7Set = new Set(last7Asc);
+
+      rowsWithDate.forEach(x => { if (last7Set.has(x.dKey)) last7Total++; });
+
+      const rowsLast7 = rowsWithDate
+        .filter(x => last7Set.has(x.dKey))
+        .sort((a,b) => new Date(a.dKey) - new Date(b.dKey));
+
+      const isTicket = currentSheet !== ALL_SHEETS_KEY && isTicketTrackerSheet(currentSheet);
+
+      if (currentSheet === ALL_SHEETS_KEY) {
+        thead.innerHTML = `
+          <tr>
+            <th>Date</th>
+            <th>Sheet</th>
+            <th>Affiliate</th>
+            <th>Phone</th>
+            <th>Player</th>
+            <th>Status</th>
+            <th>Updated By</th>
+          </tr>
+        `;
+      } else if (isTicket) {
+        thead.innerHTML = `
+          <tr>
+            <th>Date</th>
+            <th>Affiliate</th>
+            <th>Player</th>
+            <th>Status</th>
+            <th>Updated By</th>
+          </tr>
+        `;
+      } else {
+        thead.innerHTML = `
+          <tr>
+            <th>Date</th>
+            <th>Affiliate</th>
+            <th>Phone</th>
+            <th>Player</th>
+            <th>Status</th>
+            <th>Updated By</th>
+          </tr>
+        `;
+      }
+
+      if (!rowsLast7.length) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td colspan="8" class="muted">No records in the last 7 days for current filter.</td>`;
+        tbody.appendChild(tr);
+      } else {
+        rowsLast7.forEach(({ r, dKey }) => {
+          const sheetCell = currentSheet === ALL_SHEETS_KEY ? `<td>${r.__sheet || ""}</td>` : "";
+
+          if (currentSheet === ALL_SHEETS_KEY) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td>${dKey}</td>
+              ${sheetCell}
+              <td>${getField(r, CANON.affiliate) || ""}</td>
+              <td>${getField(r, CANON.phone) || ""}</td>
+              <td>${getField(r, CANON.player) || ""}</td>
+              <td><span class="tag">${getField(r, CANON.status) || ""}</span></td>
+              <td>${getField(r, CANON.updatedBy) || ""}</td>
+            `;
+            tbody.appendChild(tr);
+          } else if (isTicket) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td>${dKey}</td>
+              <td>${getField(r, CANON.affiliate) || ""}</td>
+              <td>${getField(r, CANON.player) || ""}</td>
+              <td><span class="tag">${getField(r, CANON.status) || ""}</span></td>
+              <td>${getField(r, CANON.updatedBy) || ""}</td>
+            `;
+            tbody.appendChild(tr);
+          } else {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td>${dKey}</td>
+              <td>${getField(r, CANON.affiliate) || ""}</td>
+              <td>${getField(r, CANON.phone) || ""}</td>
+              <td>${getField(r, CANON.player) || ""}</td>
+              <td><span class="tag">${getField(r, CANON.status) || ""}</span></td>
+              <td>${getField(r, CANON.updatedBy) || ""}</td>
+            `;
+            tbody.appendChild(tr);
+          }
+        });
+      }
+
+      document.getElementById('kpiTotal').textContent = total;
+      document.getElementById('kpiLast7').textContent = last7Total;
+      document.getElementById('kpiToday').textContent = todayTotal;
+      document.getElementById('kpiTotalSheet').textContent = breakdownName;
+
+      if (selectedKeyForKpi) {
+        document.getElementById('kpiSelected').textContent = selectedTotal;
+        document.getElementById('kpiSelectedHint').textContent = `Based on ${selectedKeyForKpi}`;
+      } else {
+        document.getElementById('kpiSelected').textContent = "-";
+        document.getElementById('kpiSelectedHint').textContent = "Pick a custom date";
+      }
+    }
+
+    // -------------------------
+    // SEARCH + STATUS EVENTS
+    // -------------------------
+    document.getElementById('searchInput').addEventListener('input', (e) => {
+      currentSearch = e.target.value.trim().toLowerCase();
+      updateAllForSheet();
+    });
+
+    document.getElementById('statusSelect').addEventListener('change', (e) => {
+      currentStatus = e.target.value;
+      updateAllForSheet();
+    });
+
+    // -------------------------
+    // CUSTOM DATE CHANGE
+    // -------------------------
+    customDateInput.addEventListener('change', (e) => {
+      const val = e.target.value;
+      selectedDay = val || null;
+
+      if (selectedDay) {
+        rangeStart = null;
+        rangeEnd = null;
+        rangeStartInput.value = "";
+        rangeEndInput.value = "";
+      }
+      updateAllForSheet();
+      buildDateChips();
+    });
+
+    // -------------------------
+    // DATE RANGE CHANGE
+    // -------------------------
+    function onRangeChange() {
+      rangeStart = rangeStartInput.value || null;
+      rangeEnd = rangeEndInput.value || null;
+
+      if (rangeStart && rangeEnd && new Date(rangeEnd) < new Date(rangeStart)) {
+        const tmp = rangeStart;
+        rangeStart = rangeEnd;
+        rangeEnd = tmp;
+        rangeStartInput.value = rangeStart;
+        rangeEndInput.value = rangeEnd;
+      }
+
+      if (rangeStart || rangeEnd) {
+        selectedDay = null;
+        customDateInput.value = "";
+      }
+
+      updateAllForSheet();
+      buildDateChips();
+    }
+
+    rangeStartInput.addEventListener('change', onRangeChange);
+    rangeEndInput.addEventListener('change', onRangeChange);
+
+    // -------------------------
+    // EXPORT CSV
+    // -------------------------
+    function escapeCsv(value) {
+      const s = String(value ?? "");
+      const needsQuotes = /[",\r\n]/.test(s);
+      const escaped = s.replace(/"/g, '""');
+      return needsQuotes ? `"${escaped}"` : escaped;
+    }
+
+    function exportCurrentView() {
+      const baseRows = getRowsForCurrentSheet();
+      const filtered = applyFiltersToRows(baseRows, true);
+
+      if (!filtered.length) {
+        alert("No data to export for current filter.");
+        return;
+      }
+
+      const isTicket = currentSheet !== ALL_SHEETS_KEY && isTicketTrackerSheet(currentSheet);
+
+      const headers = [];
+      if (currentSheet === ALL_SHEETS_KEY) headers.push("Sheet");
+      headers.push("Affiliate Username");
+      if (!isTicket) headers.push("Phone Number");
+      headers.push("Player Username","Deleted Date","Status","Update By");
+
+      const lines = [headers.join(",")];
+
+      filtered.forEach(row => {
+        const cols = [];
+        if (currentSheet === ALL_SHEETS_KEY) cols.push(row.__sheet || "");
+        cols.push(
+          getField(row, CANON.affiliate) || ""
+        );
+        if (!isTicket) cols.push(getField(row, CANON.phone) || "");
+        cols.push(
+          getField(row, CANON.player) || "",
+          (dateKeyFromCell(getField(row, CANON.deleted)) || ""),
+          getField(row, CANON.status) || "",
+          getField(row, CANON.updatedBy) || ""
+        );
+        lines.push(cols.map(escapeCsv).join(","));
+      });
+
+      const blob = new Blob([lines.join("\r\n")], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+
+      const datePart = selectedDay || (rangeStart ? `${rangeStart}_to_${rangeEnd || ""}` : "all");
+      const sheetPart = currentSheet === ALL_SHEETS_KEY ? "AllSheets" : currentSheet.replace(/\s+/g, "_");
+
+      a.href = url;
+      a.download = `DailyTask_${sheetPart}_${datePart}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    document.getElementById("exportBtn").addEventListener("click", exportCurrentView);
+
+    // -------------------------
+    // INIT + AUTO REFRESH
+    // -------------------------
+    loadData().catch(err => console.error(err));
+    setInterval(() => loadData().catch(err => console.error(err)), REFRESH_MS);
+  </script>
+</body>
+</html>
 
